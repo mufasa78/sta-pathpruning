@@ -424,58 +424,187 @@ with tab5:
 
     if tuning_method == "Cross-Validation":
         cv_folds = st.slider("Number of CV Folds", 3, 10, 5)
+        n_samples = st.slider("Training Samples", 20, 100, 50)
 
-        if st.button("Run Cross-Validation"):
-            with st.spinner("Running cross-validation..."):
-                from sta_pruning import SyntheticDataGenerator, ModelTuner
-                data_gen_cv = SyntheticDataGenerator(seed=123)
-                training_data_cv = data_gen_cv.generate_training_data(50)
+        if st.button("Run Cross-Validation", type="primary"):
+            with st.spinner(f"Running {cv_folds}-fold cross-validation on {n_samples} samples..."):
+                try:
+                    from sta_pruning import SyntheticDataGenerator, ModelTuner
+                    data_gen_cv = SyntheticDataGenerator(seed=123)
+                    
+                    progress_bar = st.progress(0)
+                    status_text = st.empty()
+                    
+                    status_text.text("Generating training data...")
+                    training_data_cv = data_gen_cv.generate_training_data(n_samples)
+                    progress_bar.progress(0.3)
 
-                model_type_str = 'rf' if model_type_tune == "Random Forest" else 'xgb'
-                tuner = ModelTuner(model_type=model_type_str)
+                    model_type_str = 'rf' if model_type_tune == "Random Forest" else 'xgb'
+                    tuner = ModelTuner(model_type=model_type_str)
 
-                cv_results = tuner.cross_validate(training_data_cv, cv=cv_folds)
+                    status_text.text(f"Running cross-validation with {cv_folds} folds...")
+                    progress_bar.progress(0.5)
+                    
+                    cv_results = tuner.cross_validate(training_data_cv, cv=cv_folds)
+                    progress_bar.progress(1.0)
+                    status_text.empty()
 
-                st.success("Cross-validation complete!")
+                    st.success("Cross-validation complete!")
 
-                col1, col2 = st.columns(2)
-                col1.metric("Mean F1 Score", f"{cv_results['mean_score']:.4f}")
-                col2.metric("Std F1 Score", f"{cv_results['std_score']:.4f}")
+                    col1, col2 = st.columns(2)
+                    col1.metric("Mean F1 Score", f"{cv_results['mean_score']:.4f}")
+                    col2.metric("Std F1 Score", f"{cv_results['std_score']:.4f}")
 
-                scores_df = pd.DataFrame({
-                    'Fold': range(1, len(cv_results['scores']) + 1),
-                    'F1 Score': cv_results['scores']
-                })
+                    scores_df = pd.DataFrame({
+                        'Fold': range(1, len(cv_results['scores']) + 1),
+                        'F1 Score': cv_results['scores']
+                    })
 
-                fig = px.bar(scores_df, x='Fold', y='F1 Score',
-                           title='Cross-Validation Scores by Fold')
-                st.plotly_chart(fig, width='stretch')
+                    fig = px.bar(scores_df, x='Fold', y='F1 Score',
+                               title=f'Cross-Validation Scores by Fold ({model_type_tune})',
+                               color='F1 Score',
+                               color_continuous_scale='Blues')
+                    fig.add_hline(y=cv_results['mean_score'], line_dash="dash", 
+                                 line_color="red", annotation_text=f"Mean: {cv_results['mean_score']:.4f}")
+                    st.plotly_chart(fig, use_container_width=True)
+                    
+                    st.session_state['cv_results'] = cv_results
+                    
+                except Exception as e:
+                    st.error(f"Error during cross-validation: {str(e)}")
+                    st.exception(e)
+
+    elif tuning_method == "Grid Search":
+        st.info("Grid Search performs exhaustive search over specified parameter values.")
+        
+        cv_folds_grid = st.slider("CV Folds", 3, 5, 3, key="grid_cv")
+        n_samples_grid = st.slider("Training Samples", 20, 100, 40, key="grid_samples")
+        
+        st.markdown("**Note:** Grid search can take several minutes depending on the parameter grid size.")
+
+        if st.button("Run Grid Search", type="primary"):
+            with st.spinner(f"Running grid search with {cv_folds_grid}-fold CV..."):
+                try:
+                    from sta_pruning import SyntheticDataGenerator, ModelTuner
+                    data_gen_grid = SyntheticDataGenerator(seed=456)
+                    
+                    progress_bar = st.progress(0)
+                    status_text = st.empty()
+                    
+                    status_text.text("Generating training data...")
+                    training_data_grid = data_gen_grid.generate_training_data(n_samples_grid)
+                    progress_bar.progress(0.2)
+
+                    model_type_str = 'rf' if model_type_tune == "Random Forest" else 'xgb'
+                    tuner = ModelTuner(model_type=model_type_str)
+
+                    status_text.text("Running grid search (this may take a while)...")
+                    progress_bar.progress(0.3)
+                    
+                    # Use a smaller parameter grid for faster execution
+                    if model_type_str == 'rf':
+                        param_grid = {
+                            'n_estimators': [100, 500],
+                            'max_depth': [10, 20, None],
+                            'min_samples_split': [2, 5]
+                        }
+                    else:
+                        param_grid = {
+                            'n_estimators': [100, 500],
+                            'max_depth': [3, 6],
+                            'learning_rate': [0.1, 0.3]
+                        }
+                    
+                    results = tuner.grid_search_cv(training_data_grid, param_grid=param_grid, cv=cv_folds_grid, n_jobs=2)
+                    progress_bar.progress(1.0)
+                    status_text.empty()
+
+                    st.success("Grid search complete!")
+
+                    st.metric("Best F1 Score", f"{results['best_score']:.4f}")
+
+                    st.subheader("Best Parameters")
+                    best_params_df = pd.DataFrame({
+                        'Parameter': list(results['best_params'].keys()),
+                        'Value': [str(v) for v in results['best_params'].values()]
+                    })
+                    st.dataframe(best_params_df, hide_index=True, use_container_width=True)
+                    
+                    st.session_state['grid_results'] = results
+                    
+                except Exception as e:
+                    st.error(f"Error during grid search: {str(e)}")
+                    st.exception(e)
 
     elif tuning_method == "Random Search":
         n_iter = st.slider("Number of Iterations", 10, 50, 20)
+        cv_folds_random = st.slider("CV Folds", 3, 5, 3, key="random_cv")
+        n_samples_random = st.slider("Training Samples", 20, 100, 50, key="random_samples")
 
-        if st.button("Run Random Search"):
+        if st.button("Run Random Search", type="primary"):
             with st.spinner(f"Running random search with {n_iter} iterations..."):
-                from sta_pruning import SyntheticDataGenerator, ModelTuner
-                data_gen_rs = SyntheticDataGenerator(seed=123)
-                training_data_rs = data_gen_rs.generate_training_data(50)
+                try:
+                    from sta_pruning import SyntheticDataGenerator, ModelTuner
+                    data_gen_rs = SyntheticDataGenerator(seed=789)
+                    
+                    progress_bar = st.progress(0)
+                    status_text = st.empty()
+                    
+                    status_text.text("Generating training data...")
+                    training_data_rs = data_gen_rs.generate_training_data(n_samples_random)
+                    progress_bar.progress(0.2)
 
-                model_type_str = 'rf' if model_type_tune == "Random Forest" else 'xgb'
-                tuner = ModelTuner(model_type=model_type_str)
+                    model_type_str = 'rf' if model_type_tune == "Random Forest" else 'xgb'
+                    tuner = ModelTuner(model_type=model_type_str)
 
-                st.info("This may take several minutes...")
-                results = tuner.random_search_cv(training_data_rs, n_iter=n_iter, cv=3)
+                    status_text.text(f"Running random search with {n_iter} iterations...")
+                    progress_bar.progress(0.3)
+                    
+                    results = tuner.random_search_cv(training_data_rs, n_iter=n_iter, cv=cv_folds_random, n_jobs=2)
+                    progress_bar.progress(1.0)
+                    status_text.empty()
 
-                st.success("Random search complete!")
+                    st.success("Random search complete!")
 
-                st.metric("Best F1 Score", f"{results['best_score']:.4f}")
+                    st.metric("Best F1 Score", f"{results['best_score']:.4f}")
 
-                st.subheader("Best Parameters")
-                best_params_df = pd.DataFrame({
-                    'Parameter': list(results['best_params'].keys()),
-                    'Value': [str(v) for v in results['best_params'].values()]
-                })
-                st.dataframe(best_params_df, hide_index=True, use_container_width=True)
+                    st.subheader("Best Parameters")
+                    best_params_df = pd.DataFrame({
+                        'Parameter': list(results['best_params'].keys()),
+                        'Value': [str(v) for v in results['best_params'].values()]
+                    })
+                    st.dataframe(best_params_df, hide_index=True, use_container_width=True)
+                    
+                    st.session_state['random_results'] = results
+                    
+                except Exception as e:
+                    st.error(f"Error during random search: {str(e)}")
+                    st.exception(e)
+    
+    # Display comparison if multiple tuning methods have been run
+    st.markdown("---")
+    st.subheader("Tuning Results Comparison")
+    
+    results_available = []
+    if 'cv_results' in st.session_state:
+        results_available.append(('Cross-Validation', st.session_state['cv_results']['mean_score']))
+    if 'grid_results' in st.session_state:
+        results_available.append(('Grid Search', st.session_state['grid_results']['best_score']))
+    if 'random_results' in st.session_state:
+        results_available.append(('Random Search', st.session_state['random_results']['best_score']))
+    
+    if results_available:
+        comparison_df = pd.DataFrame(results_available, columns=['Method', 'Best F1 Score'])
+        
+        fig = px.bar(comparison_df, x='Method', y='Best F1 Score',
+                    title='Tuning Methods Comparison',
+                    color='Best F1 Score',
+                    color_continuous_scale='Viridis')
+        st.plotly_chart(fig, use_container_width=True)
+        
+        st.dataframe(comparison_df, hide_index=True, use_container_width=True)
+    else:
+        st.info("Run one or more tuning methods to see comparison results.")
 
 with tab6:
     st.header("Batch Processing")
