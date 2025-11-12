@@ -1,0 +1,14 @@
+Metadata-Version: 2.4
+Name: sta-path-pruning
+Version: 0.1.0
+Summary: STA Path Pruning - ML-based Endpoint-Oriented Path Pruning for Circuit Timing Analysis
+Requires-Python: >=3.11
+Requires-Dist: streamlit>=1.51.0
+Requires-Dist: numpy>=1.23.0
+Requires-Dist: pandas>=1.5.0
+Requires-Dist: scikit-learn>=1.2.0
+Requires-Dist: xgboost>=1.7.0
+Requires-Dist: networkx>=3.0
+Requires-Dist: matplotlib>=3.6.0
+Requires-Dist: plotly>=5.0.0
+Requires-Dist: pytest>=7.0.0
