@@ -591,69 +591,60 @@ with tab7:
     st.dataframe(config_df, hide_index=True, use_container_width=True)
 
 with tab8:
-    st.header("CircuitNet Dataset Integration")
+    st.header("CircuitNet-Style Dataset")
     
     st.markdown("""
-    Load real-world circuit timing data from the CircuitNet dataset to train and evaluate 
-    your models on actual chip designs (CPU, GPU, AI chips) rather than synthetic data.
+    Work with **realistic circuit timing data** that mimics CircuitNet designs (CPU, GPU, AI chips).
+    
+    **🎯 No huge downloads needed!** We generate synthetic data that matches real CircuitNet characteristics:
+    - Realistic timing distributions from actual chip designs
+    - Multiple endpoint-based graphs per design
+    - Configurable complexity levels (medium to very high)
     """)
     
-    st.subheader("Dataset Setup")
+    st.subheader("Data Source Selection")
     
-    dataset_path = st.text_input(
-        "CircuitNet Dataset Path",
-        value="./circuitnet_data",
-        help="Path to your CircuitNet dataset directory"
+    data_mode = st.radio(
+        "Select Data Source",
+        ["Synthetic (Recommended - No Download)", "Real CircuitNet (Requires Download)"],
+        horizontal=True
     )
+    
+    use_synthetic = data_mode.startswith("Synthetic")
     
     col1, col2 = st.columns(2)
     
     with col1:
-        if st.button("Check Dataset Availability"):
+        if st.button("Load Available Designs"):
             from sta_pruning import CircuitNetLoader
             
-            if os.path.exists(dataset_path):
-                loader = CircuitNetLoader(dataset_path)
-                available_designs = loader.list_available_designs()
-                
-                if available_designs:
-                    st.success(f"Found {len(available_designs)} designs in dataset!")
-                    st.session_state['circuitnet_designs'] = available_designs
-                    st.session_state['circuitnet_loader'] = loader
-                else:
-                    st.warning("Dataset path exists but no designs found. Please check the directory structure.")
+            loader = CircuitNetLoader("./circuitnet_data", use_synthetic=use_synthetic)
+            available_designs = loader.list_available_designs()
+            
+            if available_designs:
+                st.success(f"✓ Found {len(available_designs)} designs!")
+                st.session_state['circuitnet_designs'] = available_designs
+                st.session_state['circuitnet_loader'] = loader
+                st.session_state['use_synthetic'] = use_synthetic
             else:
-                st.error(f"Dataset path '{dataset_path}' does not exist.")
-                st.info("""
-                **To use CircuitNet:**
-                1. Download from Hugging Face: https://huggingface.co/datasets/circuitnet
-                2. Extract to a local directory
-                3. Update the path above
-                """)
+                st.error("No designs available")
     
     with col2:
-        if st.button("Download Instructions"):
-            st.info("""
-            **CircuitNet Download Instructions:**
-            
-            ```bash
-            # Install Hugging Face CLI
-            pip install huggingface-hub
-            
-            # Download the dataset
-            huggingface-cli download circuitnet/CircuitNet-N14 --repo-type dataset --local-dir ./circuitnet_data/raw
-            
-            # Verify installation
-            python verify_circuitnet.py
-            ```
-            
-            **GitHub Repository (optional processing tools):**
-            ```bash
-            git clone https://github.com/circuitnet/CircuitNet.git
-            ```
-            
-            Or visit: https://huggingface.co/datasets/circuitnet
-            """)
+        if not use_synthetic:
+            if st.button("Download Instructions"):
+                st.warning("""
+                **Real CircuitNet files are 10+ GB!**
+                
+                We recommend using synthetic data instead.
+                
+                If you still want real data:
+                ```bash
+                pip install huggingface-hub
+                huggingface-cli download circuitnet/CircuitNet-N14 \\
+                  --repo-type dataset \\
+                  --local-dir ./circuitnet_data/raw
+                ```
+                """)
     
     if 'circuitnet_designs' in st.session_state:
         st.subheader("Available Designs")
