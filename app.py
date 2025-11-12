@@ -665,92 +665,108 @@ with tab8:
         
         if selected_designs and st.button("Load Selected Designs"):
             with st.spinner(f"Loading {len(selected_designs)} designs..."):
-                loader = st.session_state['circuitnet_loader']
-                
-                loaded_data = loader.load_batch_designs(selected_designs)
-                
-                if loaded_data:
-                    st.success(f"Successfully loaded {len(loaded_data)} designs!")
+                try:
+                    loader = st.session_state['circuitnet_loader']
                     
-                    total_endpoints = sum(len(eps) for _, eps in loaded_data)
-                    st.metric("Total Endpoints Loaded", total_endpoints)
+                    loaded_data = loader.load_batch_designs(selected_designs)
                     
-                    st.session_state['circuitnet_data'] = loaded_data
-                    
-                    summary_data = []
-                    for design_name, endpoint_graphs in loaded_data:
-                        for ep in endpoint_graphs:
-                            summary_data.append({
-                                'Design': design_name,
-                                'Endpoint': ep.endpoint,
-                                'Num Paths': ep.num_paths,
-                                'Worst Slack': f"{ep.worst_slack:.2e}"
-                            })
-                    
-                    st.dataframe(pd.DataFrame(summary_data), hide_index=True, use_container_width=True)
-                else:
-                    st.error("Failed to load designs. Check data format and paths.")
+                    if loaded_data:
+                        st.success(f"Successfully loaded {len(loaded_data)} designs!")
+                        
+                        total_endpoints = sum(len(eps) for _, eps in loaded_data)
+                        st.metric("Total Endpoints Loaded", total_endpoints)
+                        
+                        st.session_state['circuitnet_data'] = loaded_data
+                        
+                        summary_data = []
+                        for design_name, endpoint_graphs in loaded_data:
+                            for ep in endpoint_graphs:
+                                summary_data.append({
+                                    'Design': design_name,
+                                    'Endpoint': ep.endpoint,
+                                    'Num Paths': ep.num_paths,
+                                    'Worst Slack': f"{ep.worst_slack:.2e}"
+                                })
+                        
+                        st.dataframe(pd.DataFrame(summary_data), hide_index=True, use_container_width=True)
+                    else:
+                        st.error("Failed to load designs. Check data format and paths.")
+                except Exception as e:
+                    st.error(f"Error loading designs: {str(e)}")
+                    st.exception(e)
         
         if 'circuitnet_data' in st.session_state:
             st.subheader("Train on CircuitNet Data")
             
             if st.button("Train Models on Real Data"):
                 with st.spinner("Training models on CircuitNet data..."):
-                    from sta_pruning import ModelTrainer, Pipeline
-                    
-                    circuitnet_data = st.session_state['circuitnet_data']
-                    
-                    all_endpoint_graphs = []
-                    for _, endpoint_graphs in circuitnet_data:
-                        all_endpoint_graphs.extend(endpoint_graphs)
-                    
-                    trainer_rf = ModelTrainer(model_type='rf', n_estimators=500)
-                    trainer_xgb = ModelTrainer(model_type='xgb', n_estimators=500)
-                    
-                    training_data = trainer_rf.prepare_training_data(all_endpoint_graphs[:50])
-                    
-                    pipeline_rf_real = Pipeline(model_type='rf', n_estimators=500)
-                    pipeline_rf_real.train(training_data)
-                    
-                    pipeline_xgb_real = Pipeline(model_type='xgb', n_estimators=500)
-                    pipeline_xgb_real.train(training_data)
-                    
-                    st.session_state['pipeline_rf_real'] = pipeline_rf_real
-                    st.session_state['pipeline_xgb_real'] = pipeline_xgb_real
-                    
-                    st.success("Models trained on real CircuitNet data!")
+                    try:
+                        from sta_pruning import ModelTrainer, Pipeline
+                        
+                        circuitnet_data = st.session_state['circuitnet_data']
+                        
+                        all_endpoint_graphs = []
+                        for _, endpoint_graphs in circuitnet_data:
+                            all_endpoint_graphs.extend(endpoint_graphs)
+                        
+                        if not all_endpoint_graphs:
+                            st.error("No endpoint graphs available for training")
+                        else:
+                            trainer_rf = ModelTrainer(model_type='rf', n_estimators=500)
+                            trainer_xgb = ModelTrainer(model_type='xgb', n_estimators=500)
+                            
+                            num_training = min(50, len(all_endpoint_graphs))
+                            training_data = trainer_rf.prepare_training_data(all_endpoint_graphs[:num_training])
+                            
+                            pipeline_rf_real = Pipeline(model_type='rf', n_estimators=500)
+                            pipeline_rf_real.train(training_data)
+                            
+                            pipeline_xgb_real = Pipeline(model_type='xgb', n_estimators=500)
+                            pipeline_xgb_real.train(training_data)
+                            
+                            st.session_state['pipeline_rf_real'] = pipeline_rf_real
+                            st.session_state['pipeline_xgb_real'] = pipeline_xgb_real
+                            
+                            st.success(f"Models trained on {num_training} CircuitNet endpoints!")
+                    except Exception as e:
+                        st.error(f"Error training models: {str(e)}")
+                        st.exception(e)
             
             if 'pipeline_rf_real' in st.session_state:
                 st.subheader("Benchmark on Real Data")
                 
                 if st.button("Run Benchmark on CircuitNet"):
                     with st.spinner("Benchmarking on real circuit data..."):
-                        from sta_pruning import Evaluator
-                        
-                        circuitnet_data = st.session_state['circuitnet_data']
-                        pipeline_rf_real = st.session_state['pipeline_rf_real']
-                        
-                        evaluator = Evaluator()
-                        results_df = evaluator.benchmark_multiple_designs(
-                            circuitnet_data,
-                            pipeline_rf_real
-                        )
-                        
-                        summary = evaluator.get_summary_statistics()
-                        
-                        st.success("Benchmark complete!")
-                        
-                        col1, col2, col3, col4 = st.columns(4)
-                        col1.metric("Avg MSE", f"{summary['avg_mse']:.2e}")
-                        col2.metric("Avg MAE", f"{summary['avg_mae']:.2e}")
-                        col3.metric("Avg Speedup", f"{summary['avg_speedup']:.2f}×")
-                        col4.metric("Avg Path Overlap", f"{summary['avg_path_overlap']*100:.1f}%")
-                        
-                        st.subheader("Detailed Results")
-                        st.dataframe(results_df, hide_index=True, width=None)
-                        
-                        st.session_state['circuitnet_results'] = results_df
-                        st.session_state['circuitnet_summary'] = summary
+                        try:
+                            from sta_pruning import Evaluator
+                            
+                            circuitnet_data = st.session_state['circuitnet_data']
+                            pipeline_rf_real = st.session_state['pipeline_rf_real']
+                            
+                            evaluator = Evaluator()
+                            results_df = evaluator.benchmark_multiple_designs(
+                                circuitnet_data,
+                                pipeline_rf_real
+                            )
+                            
+                            summary = evaluator.get_summary_statistics()
+                            
+                            st.success("Benchmark complete!")
+                            
+                            col1, col2, col3, col4 = st.columns(4)
+                            col1.metric("Avg MSE", f"{summary['avg_mse']:.2e}")
+                            col2.metric("Avg MAE", f"{summary['avg_mae']:.2e}")
+                            col3.metric("Avg Speedup", f"{summary['avg_speedup']:.2f}×")
+                            col4.metric("Avg Path Overlap", f"{summary['avg_path_overlap']*100:.1f}%")
+                            
+                            st.subheader("Detailed Results")
+                            st.dataframe(results_df, hide_index=True, use_container_width=True)
+                            
+                            st.session_state['circuitnet_results'] = results_df
+                            st.session_state['circuitnet_summary'] = summary
+                        except Exception as e:
+                            st.error(f"Error running benchmark: {str(e)}")
+                            st.exception(e)
 
 with tab9:
     st.header("Documentation")
