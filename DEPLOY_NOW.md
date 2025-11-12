@@ -50,7 +50,8 @@ git push -u origin main
 | `app.py` | Main Streamlit application | ✅ Ready |
 | `requirements.txt` | Python dependencies | ✅ Ready |
 | `.python-version` | Python 3.11 specification | ✅ Created |
-| `.streamlit/config.toml` | Streamlit configuration | ✅ Ready |
+| `.streamlit/config.toml` | Streamlit configuration (file watcher disabled) | ✅ Fixed |
+| `.streamlit/credentials.toml` | Credentials configuration | ✅ Created |
 | `pyproject.toml` | Package metadata | ✅ Ready |
 | `.gitignore` | Excludes secrets/cache | ✅ Ready |
 | `sta_pruning/` | Python package (15 modules) | ✅ Ready |

@@ -88,6 +88,8 @@ git push origin main
 headless = true
 enableCORS = false
 enableXsrfProtection = false
+fileWatcherType = "none"        # Prevents inotify errors in production
+runOnSave = false               # Disables auto-reload
 
 [theme]
 primaryColor = "#FF4B4B"
@@ -95,6 +97,9 @@ backgroundColor = "#FFFFFF"
 secondaryBackgroundColor = "#F0F2F6"
 textColor = "#262730"
 font = "sans serif"
+
+[client]
+showErrorDetails = false        # Cleaner error display
 ```
 
 ### Python Version
