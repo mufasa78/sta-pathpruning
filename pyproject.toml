@@ -1,8 +1,16 @@
 [project]
 name = "sta-path-pruning"
-version = "0.1.0"
+version = "1.0.0"
 description = "STA Path Pruning - ML-based Endpoint-Oriented Path Pruning for Circuit Timing Analysis"
+readme = "README.md"
 requires-python = ">=3.11"
+keywords = ["static-timing-analysis", "machine-learning", "circuit-design", "eda", "path-pruning"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Electronic Design Automation (EDA)",
+    "Programming Language :: Python :: 3.11",
+]
 dependencies = [
     "streamlit>=1.51.0",
     "numpy>=1.23.0",

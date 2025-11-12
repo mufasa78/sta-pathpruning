@@ -2,6 +2,25 @@
 
 ML-based Endpoint-Oriented Path Pruning for Circuit Timing Analysis
 
+## Quick Start
+
+```bash
+# 1. Install UV package manager
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+
+# 2. Create virtual environment and install dependencies
+uv venv
+uv pip install -e .
+
+# 3. Activate virtual environment
+.venv\Scripts\activate
+
+# 4. Run the dashboard
+streamlit run app.py
+```
+
+Visit `http://localhost:8502` to access the interactive dashboard!
+
 ## Overview
 
 This system implements an intelligent path pruning algorithm for Static Timing Analysis (STA) that uses machine learning to accelerate worst-case timing path identification in circuit designs. By predicting optimal anchor nodes and strategically pruning timing paths, the system achieves ~30% speedup over exhaustive analysis while maintaining sub-picosecond accuracy.
@@ -45,28 +64,64 @@ sta_pruning/
 ├── pipeline.py            # End-to-end pipeline orchestration
 ├── evaluate.py            # Metrics and benchmarking
 ├── data_generator.py      # Synthetic data generation
-└── train.py              # Model training utilities
+├── train.py              # Model training utilities
+├── visualizer.py         # Interactive visualizations
+├── model_tuner.py        # Hyperparameter optimization
+├── batch_processor.py    # Large-scale parallel processing
+├── report_generator.py   # Benchmark report generation
+└── circuitnet_loader.py  # CircuitNet dataset integration
+
+app.py                     # Streamlit dashboard application
+main.py                    # CLI entry point
 ```
 
 ## Installation
 
-Dependencies are already configured in `pyproject.toml`. The system uses:
+### Prerequisites
+- Python 3.11 or higher
+- UV package manager (recommended) or pip
 
-- Python 3.11
-- NumPy, Pandas (data processing)
-- scikit-learn (Random Forest)
-- XGBoost (gradient boosting)
-- NetworkX (graph operations)
-- Streamlit (interactive dashboard)
-- Plotly, Matplotlib (visualization)
+### Quick Setup with UV
+
+```bash
+# Install UV (if not already installed)
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+
+# Create virtual environment and install dependencies
+uv venv
+uv pip install -e .
+
+# Activate virtual environment
+.venv\Scripts\activate  # Windows
+source .venv/bin/activate  # Linux/Mac
+```
+
+### Dependencies
+
+All dependencies are configured in `pyproject.toml`:
+
+- **Core:** Python 3.11+, NumPy, Pandas
+- **ML Models:** scikit-learn (Random Forest), XGBoost
+- **Graph Processing:** NetworkX
+- **Visualization:** Streamlit, Plotly, Matplotlib
+- **Testing:** pytest
 
 ## Usage
 
 ### Running the Dashboard
 
 ```bash
-streamlit run app.py --server.port 5000
+# Activate virtual environment first
+.venv\Scripts\activate  # Windows
+
+# Run Streamlit app
+streamlit run app.py
+
+# Or specify a custom port
+streamlit run app.py --server.port 8502
 ```
+
+The dashboard will open in your browser at `http://localhost:8502`
 
 ### Using the API
 
@@ -243,14 +298,32 @@ training_data = data_gen.generate_training_data(num_samples=100)
 3. **Training Size**: 50-100 samples sufficient for good performance
 4. **Batch Processing**: Process multiple endpoints in parallel when possible
 
+## Dashboard Features
+
+The Streamlit dashboard (`app.py`) provides:
+
+1. **Overview Tab** - System architecture and performance targets
+2. **Interactive Demo** - Real-time circuit generation and analysis
+3. **Advanced Visualizations** - Timing graphs, slack distributions, anchor analysis
+4. **Benchmark Results** - Multi-design performance evaluation
+5. **Model Tuning** - Cross-validation, grid search, random search
+6. **Batch Processing** - Large-scale parallel endpoint analysis
+7. **Model Analysis** - Feature importance and configuration
+8. **CircuitNet Dataset** - Integration with realistic circuit data
+9. **Documentation** - Complete API reference and examples
+
 ## Project Status
 
 - ✅ Core algorithm implementation complete
 - ✅ Random Forest and XGBoost models integrated
-- ✅ Interactive Streamlit dashboard
+- ✅ Interactive Streamlit dashboard with 9 tabs
 - ✅ Comprehensive benchmarking framework
 - ✅ Synthetic data generation
 - ✅ Feature importance analysis
+- ✅ Hyperparameter tuning (CV, Grid Search, Random Search)
+- ✅ Batch processing with parallel execution
+- ✅ CircuitNet dataset integration
+- ✅ Report generation (Markdown, CSV)
 
 ## Technical Details
 
@@ -266,6 +339,58 @@ training_data = data_gen.generate_training_data(num_samples=100)
 - Binary classification (anchor vs. non-anchor)
 - Positive samples weighted by coverage score
 
+## Advanced Features
+
+### Model Tuning
+- **Cross-Validation:** K-fold validation with configurable folds
+- **Grid Search:** Exhaustive hyperparameter search
+- **Random Search:** Efficient random sampling of parameter space
+
+### Batch Processing
+- **Sequential Mode:** Process endpoints one at a time
+- **Parallel Mode:** Multi-threaded processing for faster throughput
+- **Statistics:** Comprehensive timing and performance metrics
+
+### Visualization
+- **Timing Path Graphs:** Interactive network visualization with anchor highlighting
+- **Slack Distributions:** Histogram comparison of baseline vs. ML-accelerated
+- **Anchor Analysis:** Coverage and criticality visualization
+- **Feature Importance:** Bar charts for Random Forest and XGBoost
+
+### CircuitNet Integration
+- **Synthetic Mode:** Generate realistic circuit data without downloads
+- **Real Data Mode:** Load actual CircuitNet designs (requires download)
+- **Batch Loading:** Process multiple designs simultaneously
+- **Training:** Train models on real circuit timing data
+
+## Troubleshooting
+
+### Port Already in Use
+If you get a port binding error, try a different port:
+```bash
+streamlit run app.py --server.port 8503
+```
+
+Or edit `.streamlit/config.toml`:
+```toml
+[server]
+port = 8503
+address = "localhost"
+```
+
+### Virtual Environment Issues
+Make sure to activate the virtual environment before running:
+```bash
+.venv\Scripts\activate  # Windows
+source .venv/bin/activate  # Linux/Mac
+```
+
+### Missing Dependencies
+Reinstall all dependencies:
+```bash
+uv pip install -e .
+```
+
 ## Future Enhancements
 
 - Multi-anchor prediction for complex designs
@@ -273,11 +398,20 @@ training_data = data_gen.generate_training_data(num_samples=100)
 - Real STA tool integration (Synopsys PrimeTime, Cadence Tempus)
 - Advanced feature engineering
 - Deep learning models exploration
+- Incremental learning for online adaptation
 
 ## License
 
 This implementation is for research and educational purposes.
 
+## Contributing
+
+Contributions are welcome! Please ensure:
+- Code follows Python best practices
+- New features include tests
+- Documentation is updated
+- Performance benchmarks are provided
+
 ## Contact
 
-For questions or collaboration opportunities, please refer to the project documentation.
+For questions or collaboration opportunities, please refer to the project documentation or open an issue on the repository.
