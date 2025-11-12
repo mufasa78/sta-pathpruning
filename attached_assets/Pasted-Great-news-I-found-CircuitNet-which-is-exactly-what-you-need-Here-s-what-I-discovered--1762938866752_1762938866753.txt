@@ -1,0 +1,64 @@
+Great news! I found **CircuitNet**, which is exactly what you need! Here's what I discovered:
+
+## 🎯 **CircuitNet Dataset - Available on Hugging Face**
+
+### What it is:
+CircuitNet is an open-source dataset for machine learning applications in Electronic Design Automation (EDA), specifically designed for VLSI CAD tasks.
+
+### Key Features:
+
+**Two Versions Available:**
+
+1. **CircuitNet-N28** (Original)
+   - Includes timing features for circuit analysis
+   - Covers routability, timing, and power data from the design flow
+
+2. **CircuitNet-N14** (Newer)
+   - Currently maintained on Hugging Face
+   - Supports congestion, IR drop and timing prediction
+   - Contains more than 10,000 samples with a variety of chip designs including CPU, GPU, and AI Chip
+   - All designs conducted through complete commercial design flows in 14nm FinFET technology
+
+### What You'll Get:
+
+- **LEF/DEF files** (circuit layout data)
+- **Netlist information**
+- **Graph features** (perfect for your endpoint-based graph construction!)
+- **Timing features** (exactly what you need for STA!)
+- **Pretrained weights** for various tasks
+
+### Perfect for Your Project Because:
+
+✅ **Timing data included** - You need this for training your anchor prediction model  
+✅ **Graph structures** - Ready-made for your endpoint-based graph construction  
+✅ **Real chip designs** - 10,000+ samples across CPU, GPU, AI chips  
+✅ **Commercial design flow** - Real-world quality data, not synthetic  
+✅ **ML-ready format** - Already structured for PyTorch/deep learning  
+
+### How to Access:
+
+**Hugging Face Link:** CircuitNet-N14 is currently maintained on Hugging Face
+
+**GitHub Repository:** https://github.com/circuitnet/CircuitNet  
+**Website:** https://circuitnet.github.io/
+
+### Usage for Your Project:
+
+```python
+# You can use their graph building script
+python build_graph.py --data_path DATA_PATH --save_path ./graph
+
+# Then extract timing features for your model training
+# The dataset includes:
+# - Path delays
+# - Net delays  
+# - Timing violations
+# - Circuit topology (graphs)
+```
+
+### Bonus:
+The dataset includes pretrained weights available on Google Drive and Baidu Netdisk, and features code for net delay prediction and timing analysis.
+
+This dataset is **perfect** for your STA path pruning project because it has real timing data, circuit graphs, and is already being used for ML-based EDA research. You won't need to generate synthetic data or struggle with parsing proprietary STA tool outputs!
+
+Want me to help you create a data loading script specifically for your project using CircuitNet?
