@@ -6,6 +6,10 @@ from .pipeline import Pipeline
 from .evaluate import Evaluator
 from .data_generator import SyntheticDataGenerator
 from .train import ModelTrainer
+from .visualizer import Visualizer
+from .model_tuner import ModelTuner
+from .batch_processor import BatchProcessor
+from .report_generator import ReportGenerator
 
 __all__ = [
     'Node',
@@ -18,4 +22,8 @@ __all__ = [
     'Evaluator',
     'SyntheticDataGenerator',
     'ModelTrainer',
+    'Visualizer',
+    'ModelTuner',
+    'BatchProcessor',
+    'ReportGenerator',
 ]

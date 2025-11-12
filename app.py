@@ -10,7 +10,11 @@ from sta_pruning import (
     SyntheticDataGenerator,
     Pipeline,
     Evaluator,
-    ModelTrainer
+    ModelTrainer,
+    Visualizer,
+    ModelTuner,
+    BatchProcessor,
+    ReportGenerator
 )
 
 st.set_page_config(
@@ -47,10 +51,13 @@ data_gen, pipeline_rf, pipeline_xgb = initialize_system()
 st.title("⚡ STA Path Pruning System")
 st.markdown("**ML-based Endpoint-Oriented Path Pruning for Circuit Timing Analysis**")
 
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
     "Overview", 
     "Interactive Demo", 
+    "Advanced Visualizations",
     "Benchmark Results", 
+    "Model Tuning",
+    "Batch Processing",
     "Model Analysis",
     "Documentation"
 ])
@@ -209,6 +216,56 @@ with tab2:
         st.plotly_chart(fig, use_container_width=True)
 
 with tab3:
+    st.header("Advanced Visualizations")
+    
+    if 'endpoint_graph' in st.session_state and 'proposed_paths' in st.session_state:
+        visualizer = Visualizer()
+        
+        endpoint_graph = st.session_state['endpoint_graph']
+        proposed_paths = st.session_state['proposed_paths']
+        baseline_paths = st.session_state['baseline_paths']
+        proposed_stats = st.session_state['proposed_stats']
+        
+        st.subheader("Timing Path Graph Visualization")
+        st.markdown("Interactive graph showing timing paths and anchor node location")
+        
+        anchor_node = proposed_stats.get('anchor')
+        
+        fig_graph = visualizer.create_timing_path_graph(
+            endpoint_graph,
+            proposed_paths,
+            anchor_node=anchor_node,
+            max_paths=10
+        )
+        st.plotly_chart(fig_graph, use_container_width=True)
+        
+        st.subheader("Slack Distribution Analysis")
+        
+        fig_slack = visualizer.create_slack_distribution(
+            endpoint_graph,
+            baseline_paths=baseline_paths,
+            proposed_paths=proposed_paths
+        )
+        st.plotly_chart(fig_slack, use_container_width=True)
+        
+        if anchor_node:
+            st.subheader("Anchor Node Analysis")
+            
+            from sta_pruning import CandidateGenerator
+            cand_gen = CandidateGenerator()
+            candidates = cand_gen.generate(endpoint_graph)
+            
+            if candidates:
+                fig_anchor = visualizer.create_anchor_analysis(
+                    endpoint_graph,
+                    candidates,
+                    anchor_node
+                )
+                st.plotly_chart(fig_anchor, use_container_width=True)
+    else:
+        st.info("Run the Interactive Demo first to generate visualizations!")
+
+with tab4:
     st.header("Benchmark Results")
     
     st.subheader("Multi-Design Benchmarking")
@@ -331,8 +388,162 @@ with tab3:
         display_df['path_overlap'] = display_df['path_overlap'].apply(lambda x: f"{x*100:.1f}%")
         
         st.dataframe(display_df, hide_index=True, use_container_width=True, height=400)
+        
+        st.subheader("Generate Report")
+        
+        if st.button("Generate Comprehensive Report"):
+            report_gen = ReportGenerator()
+            report_text = report_gen.generate_markdown_report(results_rf, summary_rf)
+            
+            st.download_button(
+                label="Download Markdown Report",
+                data=report_text,
+                file_name=f"sta_benchmark_report_{report_gen.timestamp}.md",
+                mime="text/markdown"
+            )
+            
+            csv_data = results_rf.to_csv(index=False)
+            st.download_button(
+                label="Download CSV Results",
+                data=csv_data,
+                file_name=f"sta_benchmark_results_{report_gen.timestamp}.csv",
+                mime="text/csv"
+            )
 
-with tab4:
+with tab5:
+    st.header("Model Tuning")
+    
+    st.subheader("Hyperparameter Optimization")
+    
+    model_type_tune = st.radio("Select Model for Tuning", ["Random Forest", "XGBoost"], horizontal=True, key="tune_model")
+    
+    tuning_method = st.selectbox("Tuning Method", ["Cross-Validation", "Grid Search", "Random Search"])
+    
+    if tuning_method == "Cross-Validation":
+        cv_folds = st.slider("Number of CV Folds", 3, 10, 5)
+        
+        if st.button("Run Cross-Validation"):
+            with st.spinner("Running cross-validation..."):
+                from sta_pruning import SyntheticDataGenerator, ModelTuner
+                data_gen_cv = SyntheticDataGenerator(seed=123)
+                training_data_cv = data_gen_cv.generate_training_data(50)
+                
+                model_type_str = 'rf' if model_type_tune == "Random Forest" else 'xgb'
+                tuner = ModelTuner(model_type=model_type_str)
+                
+                cv_results = tuner.cross_validate(training_data_cv, cv=cv_folds)
+                
+                st.success("Cross-validation complete!")
+                
+                col1, col2 = st.columns(2)
+                col1.metric("Mean F1 Score", f"{cv_results['mean_score']:.4f}")
+                col2.metric("Std F1 Score", f"{cv_results['std_score']:.4f}")
+                
+                scores_df = pd.DataFrame({
+                    'Fold': range(1, len(cv_results['scores']) + 1),
+                    'F1 Score': cv_results['scores']
+                })
+                
+                fig = px.bar(scores_df, x='Fold', y='F1 Score',
+                           title='Cross-Validation Scores by Fold')
+                st.plotly_chart(fig, use_container_width=True)
+    
+    elif tuning_method == "Random Search":
+        n_iter = st.slider("Number of Iterations", 10, 50, 20)
+        
+        if st.button("Run Random Search"):
+            with st.spinner(f"Running random search with {n_iter} iterations..."):
+                from sta_pruning import SyntheticDataGenerator, ModelTuner
+                data_gen_rs = SyntheticDataGenerator(seed=123)
+                training_data_rs = data_gen_rs.generate_training_data(50)
+                
+                model_type_str = 'rf' if model_type_tune == "Random Forest" else 'xgb'
+                tuner = ModelTuner(model_type=model_type_str)
+                
+                st.info("This may take several minutes...")
+                results = tuner.random_search_cv(training_data_rs, n_iter=n_iter, cv=3)
+                
+                st.success("Random search complete!")
+                
+                st.metric("Best F1 Score", f"{results['best_score']:.4f}")
+                
+                st.subheader("Best Parameters")
+                best_params_df = pd.DataFrame({
+                    'Parameter': list(results['best_params'].keys()),
+                    'Value': [str(v) for v in results['best_params'].values()]
+                })
+                st.dataframe(best_params_df, hide_index=True, use_container_width=True)
+
+with tab6:
+    st.header("Batch Processing")
+    
+    st.subheader("Large-Scale Endpoint Analysis")
+    
+    num_endpoints_batch = st.slider("Number of Endpoints", 100, 2000, 500, step=100)
+    num_paths_range = st.slider("Paths per Endpoint Range", 50, 500, (100, 300))
+    
+    processing_mode = st.radio("Processing Mode", ["Sequential", "Parallel (Threads)"], horizontal=True)
+    
+    if st.button("Run Batch Processing"):
+        with st.spinner(f"Processing {num_endpoints_batch} endpoints..."):
+            from sta_pruning import SyntheticDataGenerator, BatchProcessor, Pipeline
+            
+            data_gen_batch = SyntheticDataGenerator(seed=456)
+            
+            endpoint_graphs = []
+            progress_bar = st.progress(0)
+            status_text = st.empty()
+            
+            for i in range(num_endpoints_batch):
+                num_paths = np.random.randint(num_paths_range[0], num_paths_range[1])
+                ep_graph = data_gen_batch.generate_endpoint_graph(
+                    f"batch_ep_{i}",
+                    num_paths=num_paths
+                )
+                endpoint_graphs.append(ep_graph)
+                
+                if (i + 1) % 50 == 0:
+                    progress_bar.progress((i + 1) / num_endpoints_batch)
+                    status_text.text(f"Generated {i + 1}/{num_endpoints_batch} endpoints")
+            
+            progress_bar.progress(1.0)
+            status_text.text("Generation complete! Starting analysis...")
+            
+            batch_processor = BatchProcessor(pipeline_rf, n_workers=4)
+            
+            start_time = time.time()
+            
+            if processing_mode == "Sequential":
+                results = batch_processor.process_batch_sequential(endpoint_graphs)
+            else:
+                results = batch_processor.process_batch_parallel(endpoint_graphs, use_processes=False)
+            
+            total_time = time.time() - start_time
+            
+            batch_stats = batch_processor.get_batch_statistics(results)
+            
+            st.success(f"Batch processing complete in {total_time:.2f}s!")
+            
+            col1, col2, col3, col4 = st.columns(4)
+            col1.metric("Total Endpoints", batch_stats['total_endpoints'])
+            col2.metric("Total Time (s)", f"{batch_stats['total_time']:.2f}")
+            col3.metric("Avg Time/Endpoint (ms)", f"{batch_stats['avg_time_per_endpoint']*1000:.2f}")
+            col4.metric("Throughput (eps/s)", f"{batch_stats['total_endpoints']/batch_stats['total_time']:.2f}")
+            
+            st.subheader("Processing Time Distribution")
+            
+            times = [stats['total_time'] * 1000 for _, _, stats in results]
+            
+            fig = go.Figure()
+            fig.add_trace(go.Histogram(x=times, nbinsx=50, name='Processing Time'))
+            fig.update_layout(
+                title='Processing Time Distribution',
+                xaxis_title='Time (ms)',
+                yaxis_title='Count'
+            )
+            st.plotly_chart(fig, use_container_width=True)
+
+with tab7:
     st.header("Model Analysis")
     
     st.subheader("Feature Importance")
@@ -376,7 +587,7 @@ with tab4:
     
     st.dataframe(config_df, hide_index=True, use_container_width=True)
 
-with tab5:
+with tab8:
     st.header("Documentation")
     
     st.subheader("System Architecture")
