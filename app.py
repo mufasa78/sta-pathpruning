@@ -5,6 +5,7 @@ import plotly.graph_objects as go
 import plotly.express as px
 from plotly.subplots import make_subplots
 import time
+import os
 
 from sta_pruning import (
     SyntheticDataGenerator,
@@ -14,7 +15,8 @@ from sta_pruning import (
     Visualizer,
     ModelTuner,
     BatchProcessor,
-    ReportGenerator
+    ReportGenerator,
+    CircuitNetLoader
 )
 
 st.set_page_config(
@@ -51,7 +53,7 @@ data_gen, pipeline_rf, pipeline_xgb = initialize_system()
 st.title("⚡ STA Path Pruning System")
 st.markdown("**ML-based Endpoint-Oriented Path Pruning for Circuit Timing Analysis**")
 
-tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9 = st.tabs([
     "Overview", 
     "Interactive Demo", 
     "Advanced Visualizations",
@@ -59,6 +61,7 @@ tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
     "Model Tuning",
     "Batch Processing",
     "Model Analysis",
+    "CircuitNet Dataset",
     "Documentation"
 ])
 
@@ -588,6 +591,169 @@ with tab7:
     st.dataframe(config_df, hide_index=True, use_container_width=True)
 
 with tab8:
+    st.header("CircuitNet Dataset Integration")
+    
+    st.markdown("""
+    Load real-world circuit timing data from the CircuitNet dataset to train and evaluate 
+    your models on actual chip designs (CPU, GPU, AI chips) rather than synthetic data.
+    """)
+    
+    st.subheader("Dataset Setup")
+    
+    dataset_path = st.text_input(
+        "CircuitNet Dataset Path",
+        value="./circuitnet_data",
+        help="Path to your CircuitNet dataset directory"
+    )
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        if st.button("Check Dataset Availability"):
+            from sta_pruning import CircuitNetLoader
+            
+            if os.path.exists(dataset_path):
+                loader = CircuitNetLoader(dataset_path)
+                available_designs = loader.list_available_designs()
+                
+                if available_designs:
+                    st.success(f"Found {len(available_designs)} designs in dataset!")
+                    st.session_state['circuitnet_designs'] = available_designs
+                    st.session_state['circuitnet_loader'] = loader
+                else:
+                    st.warning("Dataset path exists but no designs found. Please check the directory structure.")
+            else:
+                st.error(f"Dataset path '{dataset_path}' does not exist.")
+                st.info("""
+                **To use CircuitNet:**
+                1. Download from Hugging Face: https://huggingface.co/datasets/circuitnet
+                2. Extract to a local directory
+                3. Update the path above
+                """)
+    
+    with col2:
+        if st.button("Download Instructions"):
+            st.info("""
+            **CircuitNet Download Instructions:**
+            
+            ```bash
+            # Install Hugging Face CLI
+            pip install huggingface-hub
+            
+            # Download the dataset
+            huggingface-cli download circuitnet/CircuitNet-N14 --repo-type dataset --local-dir ./circuitnet_data
+            ```
+            
+            Or visit: https://huggingface.co/datasets/circuitnet
+            """)
+    
+    if 'circuitnet_designs' in st.session_state:
+        st.subheader("Available Designs")
+        
+        designs = st.session_state['circuitnet_designs']
+        st.write(f"Total designs available: {len(designs)}")
+        
+        with st.expander("View all designs"):
+            st.write(designs)
+        
+        st.subheader("Load and Analyze Design")
+        
+        selected_designs = st.multiselect(
+            "Select designs to load",
+            designs,
+            max_selections=10
+        )
+        
+        if selected_designs and st.button("Load Selected Designs"):
+            with st.spinner(f"Loading {len(selected_designs)} designs..."):
+                loader = st.session_state['circuitnet_loader']
+                
+                loaded_data = loader.load_batch_designs(selected_designs)
+                
+                if loaded_data:
+                    st.success(f"Successfully loaded {len(loaded_data)} designs!")
+                    
+                    total_endpoints = sum(len(eps) for _, eps in loaded_data)
+                    st.metric("Total Endpoints Loaded", total_endpoints)
+                    
+                    st.session_state['circuitnet_data'] = loaded_data
+                    
+                    summary_data = []
+                    for design_name, endpoint_graphs in loaded_data:
+                        for ep in endpoint_graphs:
+                            summary_data.append({
+                                'Design': design_name,
+                                'Endpoint': ep.endpoint,
+                                'Num Paths': ep.num_paths,
+                                'Worst Slack': f"{ep.worst_slack:.2e}"
+                            })
+                    
+                    st.dataframe(pd.DataFrame(summary_data), hide_index=True, width=None)
+                else:
+                    st.error("Failed to load designs. Check data format and paths.")
+        
+        if 'circuitnet_data' in st.session_state:
+            st.subheader("Train on CircuitNet Data")
+            
+            if st.button("Train Models on Real Data"):
+                with st.spinner("Training models on CircuitNet data..."):
+                    from sta_pruning import ModelTrainer, Pipeline
+                    
+                    circuitnet_data = st.session_state['circuitnet_data']
+                    
+                    all_endpoint_graphs = []
+                    for _, endpoint_graphs in circuitnet_data:
+                        all_endpoint_graphs.extend(endpoint_graphs)
+                    
+                    trainer_rf = ModelTrainer(model_type='rf', n_estimators=500)
+                    trainer_xgb = ModelTrainer(model_type='xgb', n_estimators=500)
+                    
+                    training_data = trainer_rf.prepare_training_data(all_endpoint_graphs[:50])
+                    
+                    pipeline_rf_real = Pipeline(model_type='rf', n_estimators=500)
+                    pipeline_rf_real.train(training_data)
+                    
+                    pipeline_xgb_real = Pipeline(model_type='xgb', n_estimators=500)
+                    pipeline_xgb_real.train(training_data)
+                    
+                    st.session_state['pipeline_rf_real'] = pipeline_rf_real
+                    st.session_state['pipeline_xgb_real'] = pipeline_xgb_real
+                    
+                    st.success("Models trained on real CircuitNet data!")
+            
+            if 'pipeline_rf_real' in st.session_state:
+                st.subheader("Benchmark on Real Data")
+                
+                if st.button("Run Benchmark on CircuitNet"):
+                    with st.spinner("Benchmarking on real circuit data..."):
+                        from sta_pruning import Evaluator
+                        
+                        circuitnet_data = st.session_state['circuitnet_data']
+                        pipeline_rf_real = st.session_state['pipeline_rf_real']
+                        
+                        evaluator = Evaluator()
+                        results_df = evaluator.benchmark_multiple_designs(
+                            circuitnet_data,
+                            pipeline_rf_real
+                        )
+                        
+                        summary = evaluator.get_summary_statistics()
+                        
+                        st.success("Benchmark complete!")
+                        
+                        col1, col2, col3, col4 = st.columns(4)
+                        col1.metric("Avg MSE", f"{summary['avg_mse']:.2e}")
+                        col2.metric("Avg MAE", f"{summary['avg_mae']:.2e}")
+                        col3.metric("Avg Speedup", f"{summary['avg_speedup']:.2f}×")
+                        col4.metric("Avg Path Overlap", f"{summary['avg_path_overlap']*100:.1f}%")
+                        
+                        st.subheader("Detailed Results")
+                        st.dataframe(results_df, hide_index=True, width=None)
+                        
+                        st.session_state['circuitnet_results'] = results_df
+                        st.session_state['circuitnet_summary'] = summary
+
+with tab9:
     st.header("Documentation")
     
     st.subheader("System Architecture")

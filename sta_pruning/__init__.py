@@ -3,13 +3,14 @@ from .feature_extractor import FeatureExtractor
 from .candidate_generator import CandidateGenerator
 from .anchor_predictor import AnchorPredictor
 from .pipeline import Pipeline
-from .evaluate import Evaluator
 from .data_generator import SyntheticDataGenerator
-from .train import ModelTrainer
+from .evaluate import Evaluator
 from .visualizer import Visualizer
+from .train import ModelTrainer
 from .model_tuner import ModelTuner
 from .batch_processor import BatchProcessor
 from .report_generator import ReportGenerator
+from .circuitnet_loader import CircuitNetLoader
 
 __all__ = [
     'Node',
@@ -19,11 +20,12 @@ __all__ = [
     'CandidateGenerator',
     'AnchorPredictor',
     'Pipeline',
-    'Evaluator',
     'SyntheticDataGenerator',
-    'ModelTrainer',
+    'Evaluator',
     'Visualizer',
+    'ModelTrainer',
     'ModelTuner',
     'BatchProcessor',
     'ReportGenerator',
+    'CircuitNetLoader'
 ]
