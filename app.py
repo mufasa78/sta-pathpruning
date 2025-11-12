@@ -641,7 +641,15 @@ with tab8:
             pip install huggingface-hub
             
             # Download the dataset
-            huggingface-cli download circuitnet/CircuitNet-N14 --repo-type dataset --local-dir ./circuitnet_data
+            huggingface-cli download circuitnet/CircuitNet-N14 --repo-type dataset --local-dir ./circuitnet_data/raw
+            
+            # Verify installation
+            python verify_circuitnet.py
+            ```
+            
+            **GitHub Repository (optional processing tools):**
+            ```bash
+            git clone https://github.com/circuitnet/CircuitNet.git
             ```
             
             Or visit: https://huggingface.co/datasets/circuitnet

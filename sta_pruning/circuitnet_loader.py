@@ -20,18 +20,24 @@ class CircuitNetLoader:
         
     def load_graph_features(self, design_name: str) -> Optional[Dict]:
         """Load pre-built graph features from CircuitNet format."""
-        graph_path = self.data_path / "graph" / f"{design_name}.pkl"
+        # Try multiple possible paths
+        possible_paths = [
+            self.data_path / "graph" / f"{design_name}.pkl",
+            self.data_path / "raw" / design_name / "graph.pkl",
+            self.data_path / f"{design_name}.pkl"
+        ]
         
-        if not graph_path.exists():
-            return None
-            
-        try:
-            with open(graph_path, 'rb') as f:
-                graph_data = pickle.load(f)
-            return graph_data
-        except Exception as e:
-            print(f"Error loading graph for {design_name}: {e}")
-            return None
+        for graph_path in possible_paths:
+            if graph_path.exists():
+                try:
+                    with open(graph_path, 'rb') as f:
+                        graph_data = pickle.load(f)
+                    return graph_data
+                except Exception as e:
+                    print(f"Error loading graph from {graph_path}: {e}")
+                    continue
+        
+        return None
     
     def load_timing_features(self, design_name: str) -> Optional[Dict]:
         """Load timing features from CircuitNet dataset."""
@@ -176,15 +182,24 @@ class CircuitNetLoader:
         """List all available designs in the CircuitNet dataset."""
         designs = set()
         
+        # Check graph directory
         graph_dir = self.data_path / "graph"
         if graph_dir.exists():
             for file in graph_dir.glob("*.pkl"):
                 designs.add(file.stem)
         
+        # Check timing directory
         timing_dir = self.data_path / "timing"
         if timing_dir.exists():
             for file in timing_dir.glob("*.json"):
                 designs.add(file.stem)
+        
+        # Check raw data directory (CircuitNet-N14 format)
+        raw_dir = self.data_path / "raw"
+        if raw_dir.exists():
+            for design_dir in raw_dir.iterdir():
+                if design_dir.is_dir():
+                    designs.add(design_dir.name)
         
         return sorted(list(designs))
     
