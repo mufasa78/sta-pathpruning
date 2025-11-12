@@ -687,7 +687,7 @@ with tab8:
                                 'Worst Slack': f"{ep.worst_slack:.2e}"
                             })
                     
-                    st.dataframe(pd.DataFrame(summary_data), hide_index=True, width=None)
+                    st.dataframe(pd.DataFrame(summary_data), hide_index=True, use_container_width=True)
                 else:
                     st.error("Failed to load designs. Check data format and paths.")
         
