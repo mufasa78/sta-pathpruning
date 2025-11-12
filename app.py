@@ -54,10 +54,10 @@ st.title("⚡ STA Path Pruning System")
 st.markdown("**ML-based Endpoint-Oriented Path Pruning for Circuit Timing Analysis**")
 
 tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9 = st.tabs([
-    "Overview", 
-    "Interactive Demo", 
+    "Overview",
+    "Interactive Demo",
     "Advanced Visualizations",
-    "Benchmark Results", 
+    "Benchmark Results",
     "Model Tuning",
     "Batch Processing",
     "Model Analysis",
@@ -170,7 +170,7 @@ with tab2:
                 ]
             })
 
-            fig = px.bar(time_data, x='Stage', y='Time (ms)', 
+            fig = px.bar(time_data, x='Stage', y='Time (ms)',
                         title='Processing Time by Stage',
                         color='Stage')
             st.plotly_chart(fig, width='stretch')
@@ -331,7 +331,7 @@ with tab4:
             ]
         })
 
-        st.dataframe(summary_comparison, hide_index=True, use_container_width=True)
+        st.dataframe(summary_comparison, hide_index=True, width='stretch')
 
         col1, col2 = st.columns(2)
 
@@ -340,7 +340,7 @@ with tab4:
             fig = px.histogram(results_rf, x='speedup', nbins=30,
                              title='Speedup Distribution - Random Forest',
                              labels={'speedup': 'Speedup Factor'})
-            fig.add_vline(x=summary_rf['avg_speedup'], line_dash="dash", 
+            fig.add_vline(x=summary_rf['avg_speedup'], line_dash="dash",
                          line_color="red", annotation_text=f"Avg: {summary_rf['avg_speedup']:.2f}×")
             st.plotly_chart(fig, width='stretch')
 
@@ -365,11 +365,11 @@ with tab4:
 
         fig = make_subplots(
             rows=2, cols=2,
-            subplot_titles=('MAE by Design', 'Speedup by Design', 
+            subplot_titles=('MAE by Design', 'Speedup by Design',
                           'Path Overlap by Design', 'Paths per Endpoint')
         )
 
-        fig.add_trace(go.Bar(x=design_stats_rf['design'], y=design_stats_rf['mae'], 
+        fig.add_trace(go.Bar(x=design_stats_rf['design'], y=design_stats_rf['mae'],
                             name='MAE'), row=1, col=1)
         fig.add_trace(go.Bar(x=design_stats_rf['design'], y=design_stats_rf['speedup'],
                             name='Speedup'), row=1, col=2)
@@ -383,14 +383,14 @@ with tab4:
 
         st.subheader("Detailed Results Table")
 
-        display_df = results_rf[['design', 'endpoint', 'num_paths', 'mse', 'mae', 
+        display_df = results_rf[['design', 'endpoint', 'num_paths', 'mse', 'mae',
                                  'speedup', 'path_overlap', 'num_candidates']].copy()
         display_df['mse'] = display_df['mse'].apply(lambda x: f"{x:.2e}")
         display_df['mae'] = display_df['mae'].apply(lambda x: f"{x:.2e}")
         display_df['speedup'] = display_df['speedup'].apply(lambda x: f"{x:.2f}×")
         display_df['path_overlap'] = display_df['path_overlap'].apply(lambda x: f"{x*100:.1f}%")
 
-        st.dataframe(display_df, hide_index=True, use_container_width=True, height=400)
+        st.dataframe(display_df, hide_index=True, width='stretch', height=400)
 
         st.subheader("Generate Report")
 
@@ -431,10 +431,10 @@ with tab5:
                 try:
                     from sta_pruning import SyntheticDataGenerator, ModelTuner
                     data_gen_cv = SyntheticDataGenerator(seed=123)
-                    
+
                     progress_bar = st.progress(0)
                     status_text = st.empty()
-                    
+
                     status_text.text("Generating training data...")
                     training_data_cv = data_gen_cv.generate_training_data(n_samples)
                     progress_bar.progress(0.3)
@@ -444,7 +444,7 @@ with tab5:
 
                     status_text.text(f"Running cross-validation with {cv_folds} folds...")
                     progress_bar.progress(0.5)
-                    
+
                     cv_results = tuner.cross_validate(training_data_cv, cv=cv_folds)
                     progress_bar.progress(1.0)
                     status_text.empty()
@@ -464,22 +464,22 @@ with tab5:
                                title=f'Cross-Validation Scores by Fold ({model_type_tune})',
                                color='F1 Score',
                                color_continuous_scale='Blues')
-                    fig.add_hline(y=cv_results['mean_score'], line_dash="dash", 
+                    fig.add_hline(y=cv_results['mean_score'], line_dash="dash",
                                  line_color="red", annotation_text=f"Mean: {cv_results['mean_score']:.4f}")
                     st.plotly_chart(fig, use_container_width=True)
-                    
+
                     st.session_state['cv_results'] = cv_results
-                    
+
                 except Exception as e:
                     st.error(f"Error during cross-validation: {str(e)}")
                     st.exception(e)
 
     elif tuning_method == "Grid Search":
         st.info("Grid Search performs exhaustive search over specified parameter values.")
-        
+
         cv_folds_grid = st.slider("CV Folds", 3, 5, 3, key="grid_cv")
         n_samples_grid = st.slider("Training Samples", 20, 100, 40, key="grid_samples")
-        
+
         st.markdown("**Note:** Grid search can take several minutes depending on the parameter grid size.")
 
         if st.button("Run Grid Search", type="primary"):
@@ -487,10 +487,10 @@ with tab5:
                 try:
                     from sta_pruning import SyntheticDataGenerator, ModelTuner
                     data_gen_grid = SyntheticDataGenerator(seed=456)
-                    
+
                     progress_bar = st.progress(0)
                     status_text = st.empty()
-                    
+
                     status_text.text("Generating training data...")
                     training_data_grid = data_gen_grid.generate_training_data(n_samples_grid)
                     progress_bar.progress(0.2)
@@ -500,7 +500,7 @@ with tab5:
 
                     status_text.text("Running grid search (this may take a while)...")
                     progress_bar.progress(0.3)
-                    
+
                     # Use a smaller parameter grid for faster execution
                     if model_type_str == 'rf':
                         param_grid = {
@@ -514,7 +514,7 @@ with tab5:
                             'max_depth': [3, 6],
                             'learning_rate': [0.1, 0.3]
                         }
-                    
+
                     results = tuner.grid_search_cv(training_data_grid, param_grid=param_grid, cv=cv_folds_grid, n_jobs=2)
                     progress_bar.progress(1.0)
                     status_text.empty()
@@ -528,10 +528,10 @@ with tab5:
                         'Parameter': list(results['best_params'].keys()),
                         'Value': [str(v) for v in results['best_params'].values()]
                     })
-                    st.dataframe(best_params_df, hide_index=True, use_container_width=True)
-                    
+                    st.dataframe(best_params_df, hide_index=True, width='stretch')
+
                     st.session_state['grid_results'] = results
-                    
+
                 except Exception as e:
                     st.error(f"Error during grid search: {str(e)}")
                     st.exception(e)
@@ -546,10 +546,10 @@ with tab5:
                 try:
                     from sta_pruning import SyntheticDataGenerator, ModelTuner
                     data_gen_rs = SyntheticDataGenerator(seed=789)
-                    
+
                     progress_bar = st.progress(0)
                     status_text = st.empty()
-                    
+
                     status_text.text("Generating training data...")
                     training_data_rs = data_gen_rs.generate_training_data(n_samples_random)
                     progress_bar.progress(0.2)
@@ -559,7 +559,7 @@ with tab5:
 
                     status_text.text(f"Running random search with {n_iter} iterations...")
                     progress_bar.progress(0.3)
-                    
+
                     results = tuner.random_search_cv(training_data_rs, n_iter=n_iter, cv=cv_folds_random, n_jobs=2)
                     progress_bar.progress(1.0)
                     status_text.empty()
@@ -573,18 +573,18 @@ with tab5:
                         'Parameter': list(results['best_params'].keys()),
                         'Value': [str(v) for v in results['best_params'].values()]
                     })
-                    st.dataframe(best_params_df, hide_index=True, use_container_width=True)
-                    
+                    st.dataframe(best_params_df, hide_index=True, width='stretch')
+
                     st.session_state['random_results'] = results
-                    
+
                 except Exception as e:
                     st.error(f"Error during random search: {str(e)}")
                     st.exception(e)
-    
+
     # Display comparison if multiple tuning methods have been run
     st.markdown("---")
     st.subheader("Tuning Results Comparison")
-    
+
     results_available = []
     if 'cv_results' in st.session_state:
         results_available.append(('Cross-Validation', st.session_state['cv_results']['mean_score']))
@@ -592,17 +592,17 @@ with tab5:
         results_available.append(('Grid Search', st.session_state['grid_results']['best_score']))
     if 'random_results' in st.session_state:
         results_available.append(('Random Search', st.session_state['random_results']['best_score']))
-    
+
     if results_available:
         comparison_df = pd.DataFrame(results_available, columns=['Method', 'Best F1 Score'])
-        
+
         fig = px.bar(comparison_df, x='Method', y='Best F1 Score',
                     title='Tuning Methods Comparison',
                     color='Best F1 Score',
                     color_continuous_scale='Viridis')
         st.plotly_chart(fig, use_container_width=True)
-        
-        st.dataframe(comparison_df, hide_index=True, use_container_width=True)
+
+        st.dataframe(comparison_df, hide_index=True, width='stretch')
     else:
         st.info("Run one or more tuning methods to see comparison results.")
 
@@ -711,13 +711,13 @@ with tab7:
     st.subheader("Model Configuration")
 
     config_df = pd.DataFrame({
-        'Parameter': ['Model Type', 'Number of Estimators', 'Max Candidates', 
+        'Parameter': ['Model Type', 'Number of Estimators', 'Max Candidates',
                      'Top K Paths', 'Training Samples', 'Feature Dimension'],
         'Random Forest': ['Random Forest', '500', '30', '10', '50', '21'],
         'XGBoost': ['XGBoost', '500', '30', '10', '50', '21']
     })
 
-    st.dataframe(config_df, hide_index=True, use_container_width=True)
+    st.dataframe(config_df, hide_index=True, width='stretch')
 
 with tab8:
     st.header("CircuitNet-Style Dataset")
@@ -1008,8 +1008,8 @@ with tab9:
     st.subheader("References")
 
     st.markdown("""
-    This implementation is based on the endpoint-oriented path pruning algorithm for 
-    static timing analysis, designed to accelerate worst-case timing path identification 
+    This implementation is based on the endpoint-oriented path pruning algorithm for
+    static timing analysis, designed to accelerate worst-case timing path identification
     in large-scale circuit designs.
 
     **Key Concepts:**
@@ -1025,7 +1025,7 @@ st.sidebar.info("""
 
 Version 1.0
 
-A machine learning-based system for accelerating static timing analysis through 
+A machine learning-based system for accelerating static timing analysis through
 intelligent path pruning and anchor node prediction.
 
 **Technologies:**
