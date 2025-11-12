@@ -22,87 +22,168 @@ class Visualizer:
                                  paths_to_show: List[TimingPath],
                                  anchor_node: Optional[Node] = None,
                                  max_paths: int = 10) -> go.Figure:
-        G = nx.DiGraph()
-
+        """Create a cleaner hierarchical timing path visualization"""
         paths_subset = paths_to_show[:max_paths]
-
-        node_positions = {}
-        node_colors = {}
-        node_sizes = {}
-
-        for path_idx, path in enumerate(paths_subset):
+        
+        # Build node registry with unique positioning
+        node_registry = {}
+        max_depth = 0
+        
+        # First pass: identify all unique nodes and their depths
+        for path in paths_subset:
             for depth, node in enumerate(path.nodes):
-                if node.node_id not in G:
-                    G.add_node(node.node_id)
-                    node_positions[node.node_id] = (depth, -path_idx * 2)
-
-                    if anchor_node and node.node_id == anchor_node.node_id:
-                        node_colors[node.node_id] = self.color_scheme['anchor']
-                        node_sizes[node.node_id] = 30
-                    elif node.slack < -100:
-                        node_colors[node.node_id] = self.color_scheme['critical']
-                        node_sizes[node.node_id] = 20
-                    else:
-                        node_colors[node.node_id] = self.color_scheme['normal']
-                        node_sizes[node.node_id] = 15
-
-                if depth > 0:
-                    prev_node = path.nodes[depth - 1]
-                    G.add_edge(prev_node.node_id, node.node_id)
-
+                if node.node_id not in node_registry:
+                    node_registry[node.node_id] = {
+                        'node': node,
+                        'min_depth': depth,
+                        'max_depth': depth,
+                        'paths': []
+                    }
+                else:
+                    node_registry[node.node_id]['min_depth'] = min(node_registry[node.node_id]['min_depth'], depth)
+                    node_registry[node.node_id]['max_depth'] = max(node_registry[node.node_id]['max_depth'], depth)
+                
+                node_registry[node.node_id]['paths'].append(path.path_id)
+                max_depth = max(max_depth, depth)
+        
+        # Create hierarchical layout
+        depth_nodes = {}
+        for node_id, info in node_registry.items():
+            avg_depth = (info['min_depth'] + info['max_depth']) / 2
+            depth_key = int(avg_depth)
+            if depth_key not in depth_nodes:
+                depth_nodes[depth_key] = []
+            depth_nodes[depth_key].append(node_id)
+        
+        # Position nodes with better spacing
+        node_positions = {}
+        for depth in sorted(depth_nodes.keys()):
+            nodes_at_depth = depth_nodes[depth]
+            num_nodes = len(nodes_at_depth)
+            for idx, node_id in enumerate(nodes_at_depth):
+                y_pos = (idx - num_nodes/2) * 3  # Better vertical spacing
+                node_positions[node_id] = (depth * 5, y_pos)  # Better horizontal spacing
+        
+        # Create separate traces for different node types
+        critical_nodes = {'x': [], 'y': [], 'text': [], 'ids': []}
+        anchor_nodes = {'x': [], 'y': [], 'text': [], 'ids': []}
+        normal_nodes = {'x': [], 'y': [], 'text': [], 'ids': []}
+        
+        for node_id, info in node_registry.items():
+            x, y = node_positions[node_id]
+            node = info['node']
+            hover_text = (f"Node: {node_id}<br>"
+                         f"Slack: {node.slack:.2f} ps<br>"
+                         f"Arrival: {node.arrival_time:.2f} ps<br>"
+                         f"Paths: {len(info['paths'])}")
+            
+            if anchor_node and node.node_id == anchor_node.node_id:
+                anchor_nodes['x'].append(x)
+                anchor_nodes['y'].append(y)
+                anchor_nodes['text'].append(hover_text)
+                anchor_nodes['ids'].append(node_id)
+            elif node.slack < -100:
+                critical_nodes['x'].append(x)
+                critical_nodes['y'].append(y)
+                critical_nodes['text'].append(hover_text)
+                critical_nodes['ids'].append(node_id)
+            else:
+                normal_nodes['x'].append(x)
+                normal_nodes['y'].append(y)
+                normal_nodes['text'].append(hover_text)
+                normal_nodes['ids'].append(node_id)
+        
+        # Create edges with reduced opacity for cleaner look
         edge_x = []
         edge_y = []
-        for edge in G.edges():
-            x0, y0 = node_positions[edge[0]]
-            x1, y1 = node_positions[edge[1]]
-            edge_x.extend([x0, x1, None])
-            edge_y.extend([y0, y1, None])
-
-        edge_trace = go.Scatter(
+        
+        for path in paths_subset:
+            for i in range(len(path.nodes) - 1):
+                node1_id = path.nodes[i].node_id
+                node2_id = path.nodes[i + 1].node_id
+                
+                if node1_id in node_positions and node2_id in node_positions:
+                    x0, y0 = node_positions[node1_id]
+                    x1, y1 = node_positions[node2_id]
+                    edge_x.extend([x0, x1, None])
+                    edge_y.extend([y0, y1, None])
+        
+        # Build figure
+        fig = go.Figure()
+        
+        # Add edges
+        fig.add_trace(go.Scatter(
             x=edge_x, y=edge_y,
-            line=dict(width=1, color='#888'),
+            mode='lines',
+            line=dict(width=0.5, color='rgba(100, 100, 100, 0.2)'),
             hoverinfo='none',
-            mode='lines'
-        )
-
-        node_x = []
-        node_y = []
-        node_color = []
-        node_size = []
-        node_text = []
-
-        for node_id in G.nodes():
-            x, y = node_positions[node_id]
-            node_x.append(x)
-            node_y.append(y)
-            node_color.append(node_colors[node_id])
-            node_size.append(node_sizes[node_id])
-            node_text.append(f"{node_id[:20]}...")
-
-        node_trace = go.Scatter(
-            x=node_x, y=node_y,
-            mode='markers+text',
-            hoverinfo='text',
-            text=node_text,
-            textposition="top center",
-            textfont=dict(size=8),
-            marker=dict(
-                size=node_size,
-                color=node_color,
-                line=dict(width=2, color='white')
-            )
-        )
-
-        fig = go.Figure(data=[edge_trace, node_trace])
-
+            showlegend=False
+        ))
+        
+        # Add normal nodes
+        if normal_nodes['x']:
+            fig.add_trace(go.Scatter(
+                x=normal_nodes['x'], y=normal_nodes['y'],
+                mode='markers',
+                marker=dict(size=12, color=self.color_scheme['normal'], 
+                           line=dict(width=1, color='white')),
+                text=normal_nodes['text'],
+                hoverinfo='text',
+                name='Normal Nodes',
+                showlegend=True
+            ))
+        
+        # Add critical nodes
+        if critical_nodes['x']:
+            fig.add_trace(go.Scatter(
+                x=critical_nodes['x'], y=critical_nodes['y'],
+                mode='markers',
+                marker=dict(size=14, color=self.color_scheme['critical'],
+                           line=dict(width=2, color='white'), symbol='diamond'),
+                text=critical_nodes['text'],
+                hoverinfo='text',
+                name='Critical Nodes',
+                showlegend=True
+            ))
+        
+        # Add anchor node
+        if anchor_nodes['x']:
+            fig.add_trace(go.Scatter(
+                x=anchor_nodes['x'], y=anchor_nodes['y'],
+                mode='markers',
+                marker=dict(size=20, color=self.color_scheme['anchor'],
+                           line=dict(width=3, color='orange'), symbol='star'),
+                text=anchor_nodes['text'],
+                hoverinfo='text',
+                name='Anchor Node',
+                showlegend=True
+            ))
+        
         fig.update_layout(
-            title=dict(text=f'Timing Path Graph - {endpoint_graph.endpoint}', font=dict(size=16)),
-            showlegend=False,
+            title=dict(
+                text=f'Timing Path Graph - {endpoint_graph.endpoint}<br>' +
+                     f'<sub>Showing {len(paths_subset)} paths | {len(node_registry)} unique nodes</sub>',
+                font=dict(size=16)
+            ),
+            showlegend=True,
+            legend=dict(x=0.01, y=0.99, bgcolor='rgba(255, 255, 255, 0.8)'),
             hovermode='closest',
-            margin=dict(b=20, l=5, r=5, t=40),
-            xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
-            yaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
-            height=600
+            plot_bgcolor='#f8f9fa',
+            margin=dict(b=40, l=40, r=40, t=80),
+            xaxis=dict(
+                showgrid=True, 
+                gridcolor='rgba(200, 200, 200, 0.3)',
+                zeroline=False, 
+                showticklabels=True,
+                title='Timing Depth'
+            ),
+            yaxis=dict(
+                showgrid=True,
+                gridcolor='rgba(200, 200, 200, 0.3)',
+                zeroline=False, 
+                showticklabels=False
+            ),
+            height=700
         )
 
         return fig
