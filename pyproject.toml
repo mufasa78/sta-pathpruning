@@ -1,8 +1,16 @@
 [project]
-name = "repl-nix-workspace"
+name = "sta-path-pruning"
 version = "0.1.0"
-description = "Add your description here"
+description = "STA Path Pruning - ML-based Endpoint-Oriented Path Pruning for Circuit Timing Analysis"
 requires-python = ">=3.11"
 dependencies = [
     "streamlit>=1.51.0",
+    "numpy>=1.23.0",
+    "pandas>=1.5.0",
+    "scikit-learn>=1.2.0",
+    "xgboost>=1.7.0",
+    "networkx>=3.0",
+    "matplotlib>=3.6.0",
+    "plotly>=5.0.0",
+    "pytest>=7.0.0",
 ]
